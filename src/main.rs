@@ -65,16 +65,17 @@ impl Cpu {
 
     fn run(&mut self) {
         loop {
-            let instruction_byte = self.memory[self.pc as usize];
-            self.pc += 0x1;
+            let instruction_byte = self.read_next_byte();
             
             match instruction_byte {
                 0x20 => self.jump_to_subroutine(),  // JSR
                 0x4c => self.jump(),  // JMP
                 0x78 => self.set_interrupt_disable(),  // SEI
+                0x84 => self.store_y(),  // STY
                 0x8d => self.store_a(),  // STA
                 0x8e => self.store_x(),  // STX
                 0x9a => self.transfer_x_to_stack_pointer(),  // TXS
+                0xa0 => self.load_y(),  // LDY
                 0xa2 => self.load_x(),  // LDX
                 0xa9 => self.load_a(),  // LDA
                 0xd8 => self.clear_decimal(),  // CLD
@@ -127,9 +128,10 @@ impl Cpu {
     }
 
     fn jump_to_subroutine(&mut self) {
-        let new_address = self.read_next_word();
-        let high = (self.pc >> 8) as u8;
-        let low = (self.pc & 0xff) as u8;
+        let new_address = self.peek_next_word();
+        let return_address = self.pc + 1;
+        let high = (return_address >> 8) as u8;
+        let low = (return_address & 0xff) as u8;
         self.push_to_stack(high); 
         self.push_to_stack(low); 
         self.pc = new_address;
@@ -145,8 +147,20 @@ impl Cpu {
         self.memory[address as usize] = self.x;
     }
 
+    fn store_y(&mut self) {
+        // Zero page Y
+        // let arg = self.read_next_byte();
+        // let index = arg.wrapping_add(self.y);
+        // let memory_address = self.memory[index as usize];
+        // self.memory[memory_address] = self.y;
+        panic!();
+    }
+
     fn load_a(&mut self) {
         self.a = self.read_next_byte();
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a >> 7 == 1;
     }
 
     fn load_x(&mut self) {
@@ -154,6 +168,13 @@ impl Cpu {
 
         self.flags.zero = self.x == 0;
         self.flags.negative = self.x >> 7 == 1;
+    }
+
+    fn load_y(&mut self) {
+        self.y = self.read_next_byte();
+
+        self.flags.zero = self.y == 0;
+        self.flags.negative = self.y >> 7 == 1;
     }
 
     fn clear_decimal(&mut self) {
