@@ -172,7 +172,7 @@ impl Cpu {
                 let loc = self.read_next_byte().wrapping_add(self.x);
                 let first = self.memory[loc as usize];
                 let second = self.memory[loc as usize + 1];
-                u16::from_le_bytes([first, second]).wrapping_add(self.y as u16)
+                u16::from_le_bytes([first, second])
             },
             AddressingMode::IndirectY => {
                 let loc = self.read_next_byte();
