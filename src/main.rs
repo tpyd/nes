@@ -8,6 +8,14 @@ struct Flags {
     // TODO missing b flag
 }
 
+#[derive(Debug)]
+enum AddressingMode {
+    Absolute,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY
+}
+
 struct Cpu {
     a: u8,
     x: u8,
@@ -72,8 +80,10 @@ impl Cpu {
                 0x4c => self.jump(),  // JMP
                 0x78 => self.set_interrupt_disable(),  // SEI
                 0x84 => self.store_y(),  // STY
+                0x86 => self.store_x(AddressingMode::ZeroPage),  // STX
                 0x8d => self.store_a(),  // STA
-                0x8e => self.store_x(),  // STX
+                0x8e => self.store_x(AddressingMode::Absolute),  // STX
+                0x96 => self.store_x(AddressingMode::ZeroPageY),  // STX
                 0x9a => self.transfer_x_to_stack_pointer(),  // TXS
                 0xa0 => self.load_y(),  // LDY
                 0xa2 => self.load_x(),  // LDX
@@ -142,18 +152,21 @@ impl Cpu {
         self.memory[address as usize] = self.a;
     }
 
-    fn store_x(&mut self) {
-        let address = self.read_next_word();
+    fn store_x(&mut self, addressing_mode: AddressingMode) {
+        let address = match addressing_mode {
+            AddressingMode::Absolute => self.read_next_word(),
+            AddressingMode::ZeroPage => self.read_next_byte() as u16,
+            AddressingMode::ZeroPageY => self.read_next_byte().wrapping_add(self.y) as u16,
+            _ => panic!("STX called with unsupported addressing mode {addressing_mode:?}")
+        };
+
         self.memory[address as usize] = self.x;
     }
 
     fn store_y(&mut self) {
-        // Zero page Y
-        // let arg = self.read_next_byte();
-        // let index = arg.wrapping_add(self.y);
-        // let memory_address = self.memory[index as usize];
-        // self.memory[memory_address] = self.y;
-        panic!();
+        // Zero page
+        let address = self.read_next_byte();
+        self.memory[address as usize] = self.y;
     }
 
     fn load_a(&mut self) {
