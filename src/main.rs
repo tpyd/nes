@@ -10,10 +10,14 @@ struct Flags {
 
 #[derive(Debug)]
 enum AddressingMode {
-    Absolute,
     ZeroPage,
     ZeroPageX,
-    ZeroPageY
+    ZeroPageY,
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    IndirectX,
+    IndirectY
 }
 
 struct Cpu {
@@ -76,14 +80,24 @@ impl Cpu {
             let instruction_byte = self.read_next_byte();
             
             match instruction_byte {
+                // STA
+                0x85 => self.store_a(AddressingMode::ZeroPage),
+                0x95 => self.store_a(AddressingMode::ZeroPageX),
+                0x8d => self.store_a(AddressingMode::Absolute),
+                0x9d => self.store_a(AddressingMode::AbsoluteX),
+                0x99 => self.store_a(AddressingMode::AbsoluteY),
+                0x81 => self.store_a(AddressingMode::IndirectX),
+                0x91 => self.store_a(AddressingMode::IndirectY),
+
+                // STX
+                0x86 => self.store_x(AddressingMode::ZeroPage),
+                0x96 => self.store_x(AddressingMode::ZeroPageY),
+                0x8e => self.store_x(AddressingMode::Absolute),
+
                 0x20 => self.jump_to_subroutine(),  // JSR
                 0x4c => self.jump(),  // JMP
                 0x78 => self.set_interrupt_disable(),  // SEI
                 0x84 => self.store_y(),  // STY
-                0x86 => self.store_x(AddressingMode::ZeroPage),  // STX
-                0x8d => self.store_a(),  // STA
-                0x8e => self.store_x(AddressingMode::Absolute),  // STX
-                0x96 => self.store_x(AddressingMode::ZeroPageY),  // STX
                 0x9a => self.transfer_x_to_stack_pointer(),  // TXS
                 0xa0 => self.load_y(),  // LDY
                 0xa2 => self.load_x(),  // LDX
@@ -147,16 +161,36 @@ impl Cpu {
         self.pc = new_address;
     }
 
-    fn store_a(&mut self) {
-        let address = self.read_next_word();
+    fn store_a(&mut self, addressing_mode: AddressingMode) {
+        let address = match addressing_mode {
+            AddressingMode::ZeroPage => self.read_next_byte() as u16,
+            AddressingMode::ZeroPageX => self.read_next_byte().wrapping_add(self.x) as u16,
+            AddressingMode::Absolute => self.read_next_word(),
+            AddressingMode::AbsoluteX => self.read_next_word().wrapping_add(self.x as u16),
+            AddressingMode::AbsoluteY => self.read_next_word().wrapping_add(self.y as u16),
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc as usize + 1];
+                u16::from_le_bytes([first, second]).wrapping_add(self.y as u16)
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc as usize + 1];
+                u16::from_le_bytes([first, second]).wrapping_add(self.y as u16)
+            },
+            _ => panic!("STA called with unsupported addressing mode {addressing_mode:?}")
+        };
+
         self.memory[address as usize] = self.a;
     }
 
     fn store_x(&mut self, addressing_mode: AddressingMode) {
         let address = match addressing_mode {
-            AddressingMode::Absolute => self.read_next_word(),
             AddressingMode::ZeroPage => self.read_next_byte() as u16,
             AddressingMode::ZeroPageY => self.read_next_byte().wrapping_add(self.y) as u16,
+            AddressingMode::Absolute => self.read_next_word(),
             _ => panic!("STX called with unsupported addressing mode {addressing_mode:?}")
         };
 
