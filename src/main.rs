@@ -10,6 +10,7 @@ struct Flags {
 
 #[derive(Debug)]
 enum AddressingMode {
+    Immediate,
     ZeroPage,
     ZeroPageX,
     ZeroPageY,
@@ -80,6 +81,30 @@ impl Cpu {
             let instruction_byte = self.read_next_byte();
             
             match instruction_byte {
+                // LDA
+                0xa9 => self.load_a(AddressingMode::Immediate),
+                0xa5 => self.load_a(AddressingMode::ZeroPage),
+                0xb5 => self.load_a(AddressingMode::ZeroPageX),
+                0xad => self.load_a(AddressingMode::Absolute),
+                0xbd => self.load_a(AddressingMode::AbsoluteX),
+                0xb9 => self.load_a(AddressingMode::AbsoluteY),
+                0xa1 => self.load_a(AddressingMode::IndirectX),
+                0xb1 => self.load_a(AddressingMode::IndirectY),
+
+                // LDX
+                0xa2 => self.load_x(AddressingMode::Immediate),
+                0xa6 => self.load_x(AddressingMode::ZeroPage),
+                0xb6 => self.load_x(AddressingMode::ZeroPageY),
+                0xae => self.load_x(AddressingMode::Absolute),
+                0xbe => self.load_x(AddressingMode::AbsoluteY),
+
+                // LDY
+                0xa0 => self.load_y(AddressingMode::Immediate),
+                0xa4 => self.load_y(AddressingMode::ZeroPage),
+                0xb4 => self.load_y(AddressingMode::ZeroPageX),
+                0xac => self.load_y(AddressingMode::Absolute),
+                0xbc => self.load_y(AddressingMode::AbsoluteX),
+
                 // STA
                 0x85 => self.store_a(AddressingMode::ZeroPage),
                 0x95 => self.store_a(AddressingMode::ZeroPageX),
@@ -94,16 +119,64 @@ impl Cpu {
                 0x96 => self.store_x(AddressingMode::ZeroPageY),
                 0x8e => self.store_x(AddressingMode::Absolute),
 
+                // STY
+                0x84 => self.store_y(AddressingMode::ZeroPage),
+                0x94 => self.store_y(AddressingMode::ZeroPageX),
+                0x8c => self.store_y(AddressingMode::Absolute),
+
+                // INC, INX & INY
+                0xe6 => self.increment_memory(AddressingMode::ZeroPage),
+                0xf6 => self.increment_memory(AddressingMode::ZeroPageX),
+                0xee => self.increment_memory(AddressingMode::Absolute),
+                0xfe => self.increment_memory(AddressingMode::AbsoluteX),
+                0xe8 => self.increment_x(),
+                0xc8 => self.increment_y(),
+
+                // DEC, DEX, DEY
+                0xc6 => self.decrement_memory(AddressingMode::ZeroPage),
+                0xd6 => self.decrement_memory(AddressingMode::ZeroPageX),
+                0xce => self.decrement_memory(AddressingMode::Absolute),
+                0xde => self.decrement_memory(AddressingMode::AbsoluteX),
+                0xca => self.decrement_x(),
+                0x88 => self.decrement_y(),
+
+                // ADC
+                0x69 => self.add_with_carry(AddressingMode::Immediate),
+                0x65 => self.add_with_carry(AddressingMode::ZeroPage),
+                0x75 => self.add_with_carry(AddressingMode::ZeroPageX),
+                0x6d => self.add_with_carry(AddressingMode::Absolute),
+                0x7d => self.add_with_carry(AddressingMode::AbsoluteX),
+                0x79 => self.add_with_carry(AddressingMode::AbsoluteY),
+                0x61 => self.add_with_carry(AddressingMode::IndirectX),
+                0x71 => self.add_with_carry(AddressingMode::IndirectY),
+
+                // SBC
+                0xe9 => self.subtract_with_carry(AddressingMode::Immediate),
+                0xe5 => self.subtract_with_carry(AddressingMode::ZeroPage),
+                0xf5 => self.subtract_with_carry(AddressingMode::ZeroPageX),
+                0xed => self.subtract_with_carry(AddressingMode::Absolute),
+                0xfd => self.subtract_with_carry(AddressingMode::AbsoluteX),
+                0xf9 => self.subtract_with_carry(AddressingMode::AbsoluteY),
+                0xe1 => self.subtract_with_carry(AddressingMode::IndirectX),
+                0xf1 => self.subtract_with_carry(AddressingMode::IndirectY),
+
+                // TAX, TAY, TXA, TYA, TSX & TXS
+                0xaa => self.transfer_a_to_x(),
+                0xa8 => self.transfer_a_to_y(),
+                0x8a => self.transfer_x_to_a(),
+                0x98 => self.transfer_y_to_a(),
+                0xba => self.transfer_stack_pointer_to_x(),
+                0x9a => self.transfer_x_to_stack_pointer(),
+
+                // -------
+
+                // BNE
+                0xd0 => self.branch_if_not_equal(),
+
                 0x20 => self.jump_to_subroutine(),  // JSR
                 0x4c => self.jump(),  // JMP
                 0x78 => self.set_interrupt_disable(),  // SEI
-                0x84 => self.store_y(),  // STY
-                0x9a => self.transfer_x_to_stack_pointer(),  // TXS
-                0xa0 => self.load_y(),  // LDY
-                0xa2 => self.load_x(),  // LDX
-                0xa9 => self.load_a(),  // LDA
                 0xd8 => self.clear_decimal(),  // CLD
-                0xe8 => self.increment_x(),  // INX
                 _ => panic!("Invalid instruction byte: {instruction_byte:x}")
             }
 
@@ -143,22 +216,65 @@ impl Cpu {
 
 // Instructions
 impl Cpu {
-    fn set_interrupt_disable(&mut self) {
-        self.interrupt_disable_called = true;    
+    fn load_a(&mut self, addressing_mode: AddressingMode) {
+        let value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::ZeroPageY => self.memory[self.read_next_byte().wrapping_add(self.y) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            }
+        };
+
+        self.a = value;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a >> 7 == 1;
     }
 
-    fn jump(&mut self) {
-        self.pc = self.peek_next_word();
+    fn load_x(&mut self, addressing_mode: AddressingMode) {
+        let value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageY => self.memory[self.read_next_byte().wrapping_add(self.y) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            _ => panic!("LDX called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.x = value;
+
+        self.flags.zero = self.x == 0;
+        self.flags.negative = self.x >> 7 == 1;
     }
 
-    fn jump_to_subroutine(&mut self) {
-        let new_address = self.peek_next_word();
-        let return_address = self.pc + 1;
-        let high = (return_address >> 8) as u8;
-        let low = (return_address & 0xff) as u8;
-        self.push_to_stack(high); 
-        self.push_to_stack(low); 
-        self.pc = new_address;
+    fn load_y(&mut self, addressing_mode: AddressingMode) {
+        let value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            _ => panic!("LDY called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.y = value;
+
+        self.flags.zero = self.y == 0;
+        self.flags.negative = self.y >> 7 == 1;
     }
 
     fn store_a(&mut self, addressing_mode: AddressingMode) {
@@ -171,13 +287,13 @@ impl Cpu {
             AddressingMode::IndirectX => {
                 let loc = self.read_next_byte().wrapping_add(self.x);
                 let first = self.memory[loc as usize];
-                let second = self.memory[loc as usize + 1];
+                let second = self.memory[loc.wrapping_add(1) as usize];
                 u16::from_le_bytes([first, second])
             },
             AddressingMode::IndirectY => {
                 let loc = self.read_next_byte();
                 let first = self.memory[loc as usize];
-                let second = self.memory[loc as usize + 1];
+                let second = self.memory[loc.wrapping_add(1) as usize];
                 u16::from_le_bytes([first, second]).wrapping_add(self.y as u16)
             },
             _ => panic!("STA called with unsupported addressing mode {addressing_mode:?}")
@@ -197,39 +313,31 @@ impl Cpu {
         self.memory[address as usize] = self.x;
     }
 
-    fn store_y(&mut self) {
-        // Zero page
-        let address = self.read_next_byte();
+    fn store_y(&mut self, addressing_mode: AddressingMode) {
+        let address = match addressing_mode {
+            AddressingMode::ZeroPage => self.read_next_byte() as u16,
+            AddressingMode::ZeroPageX => self.read_next_byte().wrapping_add(self.x) as u16,
+            AddressingMode::Absolute => self.read_next_word(),
+            _ => panic!("STY called with unsupported addressing mode {addressing_mode:?}")
+        };
+
         self.memory[address as usize] = self.y;
     }
 
-    fn load_a(&mut self) {
-        self.a = self.read_next_byte();
+    fn increment_memory(&mut self, addressing_mode: AddressingMode) {
+        let address =  match addressing_mode {
+            AddressingMode::ZeroPage => self.read_next_byte() as u16,
+            AddressingMode::ZeroPageX => self.read_next_byte().wrapping_add(self.x) as u16,
+            AddressingMode::Absolute => self.read_next_word(),
+            AddressingMode::AbsoluteX => self.read_next_word().wrapping_add(self.x as u16),
+            _ => panic!("INC called with unsupported addressing mode {addressing_mode:?}")
+        };
 
-        self.flags.zero = self.a == 0;
-        self.flags.negative = self.a >> 7 == 1;
-    }
+        let value = self.memory[address as usize].wrapping_add(1);
+        self.memory[address as usize] = value; 
 
-    fn load_x(&mut self) {
-        self.x = self.read_next_byte();
-
-        self.flags.zero = self.x == 0;
-        self.flags.negative = self.x >> 7 == 1;
-    }
-
-    fn load_y(&mut self) {
-        self.y = self.read_next_byte();
-
-        self.flags.zero = self.y == 0;
-        self.flags.negative = self.y >> 7 == 1;
-    }
-
-    fn clear_decimal(&mut self) {
-        self.flags.decimal = false;
-    }
-
-    fn transfer_x_to_stack_pointer(&mut self) {
-        self.sp = self.x;
+        self.flags.zero = value == 0;
+        self.flags.negative = value >> 7 == 1;
     }
 
     fn increment_x(&mut self) {
@@ -238,6 +346,124 @@ impl Cpu {
         self.flags.zero = self.x == 0;
         self.flags.negative = self.x >> 7 == 1;
     }
+
+    fn increment_y(&mut self) {
+        self.y = self.y.wrapping_add(1);
+
+        self.flags.zero = self.y == 0;
+        self.flags.negative = self.y >> 7 == 1;
+    }
+
+    fn decrement_memory(&mut self, addressing_mode: AddressingMode) {
+        let address =  match addressing_mode {
+            AddressingMode::ZeroPage => self.read_next_byte() as u16,
+            AddressingMode::ZeroPageX => self.read_next_byte().wrapping_add(self.x) as u16,
+            AddressingMode::Absolute => self.read_next_word(),
+            AddressingMode::AbsoluteX => self.read_next_word().wrapping_add(self.x as u16),
+            _ => panic!("DEC called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let value = self.memory[address as usize].wrapping_sub(1);
+        self.memory[address as usize] = value; 
+
+        self.flags.zero = value == 0;
+        self.flags.negative = value >> 7 == 1;
+    }
+
+    fn decrement_x(&mut self) {
+        self.x = self.x.wrapping_sub(1);
+
+        self.flags.zero = self.x == 0;
+        self.flags.negative = self.x >> 7 == 1;
+    }
+
+    fn decrement_y(&mut self) {
+        self.y = self.y.wrapping_sub(1);
+
+        self.flags.zero = self.y == 0;
+        self.flags.negative = self.y >> 7 == 1;
+    }
+
+    fn add_with_carry(&mut self, addressing_mode: AddressingMode) {
+
+    }
+
+    fn subtract_with_carry(&mut self, addressing_mode: AddressingMode) {
+
+    }
+
+    fn transfer_a_to_x(&mut self) {
+        self.x = self.a;
+
+        self.flags.zero = self.x == 0;
+        self.flags.negative = self.x >> 7 == 1;
+    }
+
+    fn transfer_a_to_y(&mut self) {
+        self.y = self.a;
+
+        self.flags.zero = self.y == 0;
+        self.flags.negative = self.y >> 7 == 1;
+    }
+
+    fn transfer_x_to_a(&mut self) {
+        self.a = self.x;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a >> 7 == 1;
+    }
+
+    fn transfer_y_to_a(&mut self) {
+        self.a = self.y;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a >> 7 == 1;
+    }
+
+    fn transfer_stack_pointer_to_x(&mut self) {
+        self.x = self.sp;
+
+        self.flags.zero = self.x == 0;
+        self.flags.negative = self.x >> 7 == 1;
+    }
+
+    fn transfer_x_to_stack_pointer(&mut self) {
+        self.sp = self.x;
+    }
+
+
+    // ---------
+
+    fn set_interrupt_disable(&mut self) {
+        self.interrupt_disable_called = true;    
+    }
+
+    fn jump(&mut self) {
+        self.pc = self.peek_next_word();
+    }
+
+    fn jump_to_subroutine(&mut self) {
+        let new_address = self.peek_next_word();
+        let return_address = self.pc + 1;
+        let high = (return_address >> 8) as u8;
+        let low = (return_address & 0xff) as u8;
+        self.push_to_stack(high); 
+        self.push_to_stack(low); 
+        self.pc = new_address;
+    }
+
+    fn clear_decimal(&mut self) {
+        self.flags.decimal = false;
+    }
+
+    fn branch_if_not_equal(&mut self) {
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.zero == false {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
+    }
+
 }
 
 fn main() {
