@@ -385,18 +385,78 @@ impl Cpu {
     }
 
     fn add_with_carry(&mut self, addressing_mode: AddressingMode) {
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("ADC called with unsupported addressing mode {addressing_mode:?}")
+        };
+        
+        let old_value = self.a;
+        let to_add = memory_value.wrapping_add(self.flags.carry as u8);
+        let (new_value, carry) = self.a.overflowing_add(to_add);
+        self.a = new_value;
 
+        self.flags.carry = carry;
+        self.flags.zero = self.a == 0;
+        self.flags.overflow = (old_value ^ new_value) & (to_add ^ new_value) & 0x80 != 0;
+        self.flags.negative = self.a >> 7 == 1;
     }
 
     fn subtract_with_carry(&mut self, addressing_mode: AddressingMode) {
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("ADC called with unsupported addressing mode {addressing_mode:?}")
+        };
 
+        let old_value = self.a;
+        let to_sub = memory_value.wrapping_sub(!self.flags.carry as u8);
+        let (new_value, carry) = self.a.overflowing_sub(to_sub);
+        self.a = new_value;
+
+        self.flags.carry = carry;
+        self.flags.zero = self.a == 0;
+        self.flags.overflow = (old_value ^ new_value) & (!to_sub ^ new_value) & 0x80 != 0;
+        self.flags.negative = self.a >> 7 == 1;
     }
 
     fn transfer_a_to_x(&mut self) {
         self.x = self.a;
 
         self.flags.zero = self.x == 0;
-        self.flags.negative = self.x >> 7 == 1;
+        self.flags.negative = self.x >> 7 == 1;  // TODO self.x & 0x80 != 0 may be better?
     }
 
     fn transfer_a_to_y(&mut self) {
