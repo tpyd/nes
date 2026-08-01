@@ -17,6 +17,7 @@ enum AddressingMode {
     Absolute,
     AbsoluteX,
     AbsoluteY,
+    Indirect,
     IndirectX,
     IndirectY
 }
@@ -168,13 +169,19 @@ impl Cpu {
                 0xba => self.transfer_stack_pointer_to_x(),
                 0x9a => self.transfer_x_to_stack_pointer(),
 
+                // JMP, JSR, RTS, BRK & RTI
+                0x4c => self.jump(AddressingMode::Absolute),
+                0x6c => self.jump(AddressingMode::Indirect),
+                0x20 => self.jump_to_subroutine(),
+                0x60 => self.return_to_subroutine(),
+                0x00 => self.r#break(),
+                0x40 => self.return_from_interrupt(),
+
                 // -------
 
                 // BNE
                 0xd0 => self.branch_if_not_equal(),
 
-                0x20 => self.jump_to_subroutine(),  // JSR
-                0x4c => self.jump(),  // JMP
                 0x78 => self.set_interrupt_disable(),  // SEI
                 0xd8 => self.clear_decimal(),  // CLD
                 _ => panic!("Invalid instruction byte: {instruction_byte:x}")
@@ -212,6 +219,12 @@ impl Cpu {
         self.memory[0x100 + self.sp as usize] = value;
         self.sp = self.sp.wrapping_sub(1);
     }
+
+    fn pop_from_stack(&mut self) -> u8 {
+        let value = self.memory[0x100 + self.sp as usize];
+        self.sp = self.sp.wrapping_add(1);
+        value
+    }
 }
 
 // Instructions
@@ -236,7 +249,8 @@ impl Cpu {
                 let first = self.memory[loc as usize];
                 let second = self.memory[loc.wrapping_add(1) as usize];
                 self.memory[u16::from_le_bytes([first, second]) as usize]
-            }
+            },
+            _ => panic!("LDA called with unsupported addressing mode {addressing_mode:?}")
         };
 
         self.a = value;
@@ -491,15 +505,24 @@ impl Cpu {
         self.sp = self.x;
     }
 
+    fn jump(&mut self, addressing_mode: AddressingMode) {
+        let address = match addressing_mode {
+            AddressingMode::Absolute => self.peek_next_word(),
+            AddressingMode::Indirect => {
+                let loc = self.peek_next_word();
+                let first = self.memory[loc as usize];
+                // Emulate CPU bug that skips page wrap
+                let second = if loc & 0xff == 0xff {
+                    self.memory[(loc & 0xff00) as usize] 
+                } else {
+                    self.memory[loc.wrapping_add(1) as usize]
+                };
+                u16::from_le_bytes([first, second])
+            },
+            _ => panic!("JMP called with unsupported addressing mode {addressing_mode:?}")
+        };
 
-    // ---------
-
-    fn set_interrupt_disable(&mut self) {
-        self.interrupt_disable_called = true;    
-    }
-
-    fn jump(&mut self) {
-        self.pc = self.peek_next_word();
+        self.pc = address;
     }
 
     fn jump_to_subroutine(&mut self) {
@@ -512,6 +535,60 @@ impl Cpu {
         self.pc = new_address;
     }
 
+    fn return_to_subroutine(&mut self) {
+        let low = self.pop_from_stack();
+        let high = self.pop_from_stack();
+        let address = u16::from_le_bytes([low, high]);
+        self.pc = address.wrapping_add(1);
+    }
+
+    fn r#break(&mut self) {
+        let pc = self.pc.wrapping_add(2);
+        let high = (pc >> 8) as u8;
+        self.push_to_stack(high);
+        let low = pc as u8;
+        self.push_to_stack(low);
+
+        // Push NV11DIZC to stack
+        let flags = (self.flags.negative as u8) << 7 |
+                    (self.flags.overflow as u8) << 6 |
+                    1 << 5 |
+                    1 << 4 |
+                    (self.flags.decimal as u8) << 3 |
+                    (self.flags.interrupt_disable as u8) << 2 |
+                    (self.flags.zero as u8) << 1 |
+                    self.flags.carry as u8;
+        self.push_to_stack(flags);
+
+        let low = self.memory[0xfffe as usize];
+        let high = self.memory[0xffff as usize];
+        self.pc = u16::from_le_bytes([low, high]);
+
+        self.flags.interrupt_disable = true;
+    }
+
+    fn return_from_interrupt(&mut self) {
+        let flags = self.pop_from_stack();
+        self.flags.negative = flags & 0x80 != 0;
+        self.flags.overflow = flags & 0x40 != 0;
+        self.flags.decimal = flags & 0x8 != 0;
+        self.flags.interrupt_disable = flags & 0x4 != 0;
+        self.flags.zero = flags & 0x2 != 0;
+        self.flags.carry = flags & 0x1 != 0;
+
+        let low = self.pop_from_stack();
+        let high = self.pop_from_stack();
+        self.pc = u16::from_le_bytes([low, high]);
+    }
+
+    // ---------
+
+    fn set_interrupt_disable(&mut self) {
+        self.interrupt_disable_called = true;    
+    }
+
+
+
     fn clear_decimal(&mut self) {
         self.flags.decimal = false;
     }
@@ -523,7 +600,6 @@ impl Cpu {
             self.pc = self.pc.wrapping_add_signed(address);
         }
     }
-
 }
 
 fn main() {
