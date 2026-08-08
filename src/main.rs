@@ -609,59 +609,80 @@ impl Cpu {
         self.sp = self.x;
     }
 
-    fn arithmetic_shift_left(&self, addressing_mode: AddressingMode) {
+    fn arithmetic_shift_left(&mut self, addressing_mode: AddressingMode) {
+        let mut value = match addressing_mode {
+            AddressingMode::Accumulator => self.a,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            _ => panic!("ASL called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.flags.carry = value & 0x80 != 0;
+        value = value << 1;
+        self.flags.zero = value == 0;
+        self.flags.negative = value & 0x80 != 0;
+
+        match addressing_mode {
+            AddressingMode::Accumulator => self.a = value,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize] = value,
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize] = value,
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize] = value,
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize] = value,
+            _ => panic!("ASL called with unsupported addressing mode {addressing_mode:?}")
+        };
+    }
+
+    fn logical_shift_right(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn logical_shift_right(&self, addressing_mode: AddressingMode) {
+    fn rotate_left(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn rotate_left(&self, addressing_mode: AddressingMode) {
+    fn rotate_right(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn rotate_right(&self, addressing_mode: AddressingMode) {
+    fn bitwise_and(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn bitwise_and(&self, addressing_mode: AddressingMode) {
+    fn bitwise_or(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn bitwise_or(&self, addressing_mode: AddressingMode) {
+    fn bitwise_exclusive_or(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn bitwise_exclusive_or(&self, addressing_mode: AddressingMode) {
+    fn bit_test(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn bit_test(&self, addressing_mode: AddressingMode) {
+    fn compare_a(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn compare_a(&self, addressing_mode: AddressingMode) {
+    fn compare_x(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn compare_x(&self, addressing_mode: AddressingMode) {
+    fn compare_y(&mut self, addressing_mode: AddressingMode) {
         todo!()
     }
 
-    fn compare_y(&self, addressing_mode: AddressingMode) {
+    fn branch_if_carry_clear(&mut self) {
         todo!()
     }
 
-    fn branch_if_carry_clear(&self) {
+    fn branch_if_carry_set(&mut self) {
         todo!()
     }
 
-    fn branch_if_carry_set(&self) {
-        todo!()
-    }
-
-    fn branch_if_equal(&self) {
+    fn branch_if_equal(&mut self) {
         todo!()
     }
 
@@ -673,19 +694,19 @@ impl Cpu {
         }
     }
 
-    fn branch_if_plus(&self) {
+    fn branch_if_plus(&mut self) {
         todo!()
     }
 
-    fn branch_if_minus(&self) {
+    fn branch_if_minus(&mut self) {
         todo!()
     }
 
-    fn branch_if_overflow_clear(&self) {
+    fn branch_if_overflow_clear(&mut self) {
         todo!()
     }
 
-    fn branch_if_overflow_set(&self) {
+    fn branch_if_overflow_set(&mut self) {
         todo!()
     }
 
@@ -765,23 +786,23 @@ impl Cpu {
         self.pc = u16::from_le_bytes([low, high]);
     }
 
-    fn push_a(&self) {
+    fn push_a(&mut self) {
         todo!()
     }
 
-    fn pull_a(&self) {
+    fn pull_a(&mut self) {
         todo!()
     }
 
-    fn push_processor_status(&self) {
+    fn push_processor_status(&mut self) {
         todo!()
     }
 
-    fn pull_processor_status(&self) {
+    fn pull_processor_status(&mut self) {
         todo!()
     }
 
-    fn set_carry(&self) {
+    fn set_carry(&mut self) {
         todo!()
     }
 
@@ -789,15 +810,15 @@ impl Cpu {
         self.interrupt_disable_called = true;    
     }
 
-    fn set_decimal(&self) {
+    fn set_decimal(&mut self) {
         todo!()
     }
 
-    fn clear_carry(&self) {
+    fn clear_carry(&mut self) {
         todo!()
     }
 
-    fn clear_interrupt_disable(&self) {
+    fn clear_interrupt_disable(&mut self) {
         todo!()
     }
 
@@ -805,7 +826,7 @@ impl Cpu {
         self.flags.decimal = false;
     }
 
-    fn clear_overflow(&self) {
+    fn clear_overflow(&mut self) {
         todo!()
     }
 }
