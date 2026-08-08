@@ -10,6 +10,7 @@ struct Flags {
 
 #[derive(Debug)]
 enum AddressingMode {
+    Accumulator,
     Immediate,
     ZeroPage,
     ZeroPageX,
@@ -169,6 +170,98 @@ impl Cpu {
                 0xba => self.transfer_stack_pointer_to_x(),
                 0x9a => self.transfer_x_to_stack_pointer(),
 
+                // ASL
+                0x0a => self.arithmetic_shift_left(AddressingMode::Accumulator),
+                0x06 => self.arithmetic_shift_left(AddressingMode::ZeroPage),
+                0x16 => self.arithmetic_shift_left(AddressingMode::ZeroPageX),
+                0x0e => self.arithmetic_shift_left(AddressingMode::Absolute),
+                0x1e => self.arithmetic_shift_left(AddressingMode::AbsoluteX),
+
+                // LSR
+                0x4a => self.logical_shift_right(AddressingMode::Accumulator),
+                0x46 => self.logical_shift_right(AddressingMode::ZeroPage),
+                0x56 => self.logical_shift_right(AddressingMode::ZeroPageX),
+                0x4e => self.logical_shift_right(AddressingMode::Absolute),
+                0x5e => self.logical_shift_right(AddressingMode::AbsoluteX),
+
+                // ROL
+                0x2a => self.rotate_left(AddressingMode::Accumulator),
+                0x26 => self.rotate_left(AddressingMode::ZeroPage),
+                0x36 => self.rotate_left(AddressingMode::ZeroPageX),
+                0x2e => self.rotate_left(AddressingMode::Absolute),
+                0x3e => self.rotate_left(AddressingMode::AbsoluteX),
+
+                // ROR
+                0x6a => self.rotate_right(AddressingMode::Accumulator),
+                0x66 => self.rotate_right(AddressingMode::ZeroPage),
+                0x76 => self.rotate_right(AddressingMode::ZeroPageX),
+                0x6e => self.rotate_right(AddressingMode::Absolute),
+                0x7e => self.rotate_right(AddressingMode::AbsoluteX),
+
+                // AND
+                0x29 => self.bitwise_and(AddressingMode::Immediate),
+                0x25 => self.bitwise_and(AddressingMode::ZeroPage),
+                0x35 => self.bitwise_and(AddressingMode::ZeroPageX),
+                0x2d => self.bitwise_and(AddressingMode::Absolute),
+                0x3d => self.bitwise_and(AddressingMode::AbsoluteX),
+                0x39 => self.bitwise_and(AddressingMode::AbsoluteY),
+                0x21 => self.bitwise_and(AddressingMode::IndirectX),
+                0x31 => self.bitwise_and(AddressingMode::IndirectY),
+
+                // ORA
+                0x09 => self.bitwise_or(AddressingMode::Immediate),
+                0x05 => self.bitwise_or(AddressingMode::ZeroPage),
+                0x15 => self.bitwise_or(AddressingMode::ZeroPageX),
+                0x0d => self.bitwise_or(AddressingMode::Absolute),
+                0x1d => self.bitwise_or(AddressingMode::AbsoluteX),
+                0x19 => self.bitwise_or(AddressingMode::AbsoluteY),
+                0x01 => self.bitwise_or(AddressingMode::IndirectX),
+                0x11 => self.bitwise_or(AddressingMode::IndirectY),
+
+                // EOR
+                0x49 => self.bitwise_exclusive_or(AddressingMode::Immediate),
+                0x45 => self.bitwise_exclusive_or(AddressingMode::ZeroPage),
+                0x55 => self.bitwise_exclusive_or(AddressingMode::ZeroPageX),
+                0x4d => self.bitwise_exclusive_or(AddressingMode::Absolute),
+                0x5d => self.bitwise_exclusive_or(AddressingMode::AbsoluteX),
+                0x59 => self.bitwise_exclusive_or(AddressingMode::AbsoluteY),
+                0x41 => self.bitwise_exclusive_or(AddressingMode::IndirectX),
+                0x51 => self.bitwise_exclusive_or(AddressingMode::IndirectY),
+
+                // BIT
+                0x24 => self.bit_test(AddressingMode::ZeroPage),
+                0x2c => self.bit_test(AddressingMode::Absolute),
+
+                // CMP
+                0xc9 => self.compare_a(AddressingMode::Immediate),
+                0xc5 => self.compare_a(AddressingMode::ZeroPage),
+                0xd5 => self.compare_a(AddressingMode::ZeroPageX),
+                0xcd => self.compare_a(AddressingMode::Absolute),
+                0xdd => self.compare_a(AddressingMode::AbsoluteX),
+                0xd9 => self.compare_a(AddressingMode::AbsoluteY),
+                0xc1 => self.compare_a(AddressingMode::IndirectX),
+                0xd1 => self.compare_a(AddressingMode::IndirectY),
+
+                // CPX
+                0xe0 => self.compare_x(AddressingMode::Immediate),
+                0xe4 => self.compare_x(AddressingMode::ZeroPage),
+                0xec => self.compare_x(AddressingMode::Absolute),
+
+                // CPY
+                0xc0 => self.compare_y(AddressingMode::Immediate),
+                0xc4 => self.compare_y(AddressingMode::ZeroPage),
+                0xcc => self.compare_y(AddressingMode::Absolute),
+
+                // BCC, BCS, BEQ, BNE, BPL, BMI, BVC, BVS
+                0x90 => self.branch_if_carry_clear(),
+                0xb0 => self.branch_if_carry_set(),
+                0xf0 => self.branch_if_equal(),
+                0xd0 => self.branch_if_not_equal(),
+                0x10 => self.branch_if_plus(),
+                0x30 => self.branch_if_minus(),
+                0x50 => self.branch_if_overflow_clear(),
+                0x70 => self.branch_if_overflow_set(),
+
                 // JMP, JSR, RTS, BRK & RTI
                 0x4c => self.jump(AddressingMode::Absolute),
                 0x6c => self.jump(AddressingMode::Indirect),
@@ -177,13 +270,24 @@ impl Cpu {
                 0x00 => self.r#break(),
                 0x40 => self.return_from_interrupt(),
 
-                // -------
+                // PHA, PLA, PHP, PLP
+                0x48 => self.push_a(),
+                0x68 => self.pull_a(),
+                0x08 => self.push_processor_status(),
+                0x28 => self.pull_processor_status(),
 
-                // BNE
-                0xd0 => self.branch_if_not_equal(),
+                // SEC, SEI, SED, CLC, CLI, CLD, CLV
+                0x38 => self.set_carry(),
+                0x78 => self.set_interrupt_disable(),
+                0xf8 => self.set_decimal(),
+                0x18 => self.clear_carry(),
+                0x58 => self.clear_interrupt_disable(),
+                0xd8 => self.clear_decimal(),
+                0xb8 => self.clear_overflow(),
 
-                0x78 => self.set_interrupt_disable(),  // SEI
-                0xd8 => self.clear_decimal(),  // CLD
+                // NOP
+                0xea => {},
+
                 _ => panic!("Invalid instruction byte: {instruction_byte:x}")
             }
 
@@ -505,6 +609,86 @@ impl Cpu {
         self.sp = self.x;
     }
 
+    fn arithmetic_shift_left(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn logical_shift_right(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn rotate_left(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn rotate_right(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn bitwise_and(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn bitwise_or(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn bitwise_exclusive_or(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn bit_test(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn compare_a(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn compare_x(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn compare_y(&self, addressing_mode: AddressingMode) {
+        todo!()
+    }
+
+    fn branch_if_carry_clear(&self) {
+        todo!()
+    }
+
+    fn branch_if_carry_set(&self) {
+        todo!()
+    }
+
+    fn branch_if_equal(&self) {
+        todo!()
+    }
+
+    fn branch_if_not_equal(&mut self) {
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.zero == false {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
+    }
+
+    fn branch_if_plus(&self) {
+        todo!()
+    }
+
+    fn branch_if_minus(&self) {
+        todo!()
+    }
+
+    fn branch_if_overflow_clear(&self) {
+        todo!()
+    }
+
+    fn branch_if_overflow_set(&self) {
+        todo!()
+    }
+
     fn jump(&mut self, addressing_mode: AddressingMode) {
         let address = match addressing_mode {
             AddressingMode::Absolute => self.peek_next_word(),
@@ -581,24 +765,48 @@ impl Cpu {
         self.pc = u16::from_le_bytes([low, high]);
     }
 
-    // ---------
+    fn push_a(&self) {
+        todo!()
+    }
+
+    fn pull_a(&self) {
+        todo!()
+    }
+
+    fn push_processor_status(&self) {
+        todo!()
+    }
+
+    fn pull_processor_status(&self) {
+        todo!()
+    }
+
+    fn set_carry(&self) {
+        todo!()
+    }
 
     fn set_interrupt_disable(&mut self) {
         self.interrupt_disable_called = true;    
     }
 
+    fn set_decimal(&self) {
+        todo!()
+    }
 
+    fn clear_carry(&self) {
+        todo!()
+    }
+
+    fn clear_interrupt_disable(&self) {
+        todo!()
+    }
 
     fn clear_decimal(&mut self) {
         self.flags.decimal = false;
     }
 
-    fn branch_if_not_equal(&mut self) {
-        let address = self.read_next_byte() as i8 as i16;
-
-        if self.flags.zero == false {
-            self.pc = self.pc.wrapping_add_signed(address);
-        }
+    fn clear_overflow(&self) {
+        todo!()
     }
 }
 
