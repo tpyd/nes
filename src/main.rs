@@ -720,19 +720,104 @@ impl Cpu {
     }
 
     fn bitwise_and(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("AND called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.a = self.a & memory_value;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 != 0;
     }
 
     fn bitwise_or(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("ORA called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.a = self.a | memory_value;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 != 0;
     }
 
     fn bitwise_exclusive_or(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("EOR called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.a = self.a ^ memory_value;
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 != 0;
     }
 
     fn bit_test(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            _ => panic!("BIT called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let temp = self.a & memory_value;
+
+        self.flags.zero = temp == 0;
+        self.flags.overflow = memory_value & 0x40 != 0;
+        self.flags.negative = memory_value & 0x80 != 0; 
     }
 
     fn compare_a(&mut self, addressing_mode: AddressingMode) {
