@@ -635,15 +635,88 @@ impl Cpu {
     }
 
     fn logical_shift_right(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let mut value = match addressing_mode {
+            AddressingMode::Accumulator => self.a,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            _ => panic!("LSR called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        self.flags.carry = value & 0x1 != 0;
+        value = value >> 1;
+        self.flags.zero = value == 0;
+        self.flags.negative = false;
+
+        match addressing_mode {
+            AddressingMode::Accumulator => self.a = value,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize] = value,
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize] = value,
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize] = value,
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize] = value,
+            _ => panic!("LSR called with unsupported addressing mode {addressing_mode:?}")
+        };
     }
 
     fn rotate_left(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let mut value = match addressing_mode {
+            AddressingMode::Accumulator => self.a,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            _ => panic!("ROL called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let new_carry = value & 0x80 != 0;
+        value = value << 1;
+        if self.flags.carry {
+            value = value & 0x1;
+        }
+        
+        self.flags.carry = new_carry;
+        self.flags.zero = value == 0;
+        self.flags.negative = value & 0x80 != 0;
+
+        match addressing_mode {
+            AddressingMode::Accumulator => self.a = value,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize] = value,
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize] = value,
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize] = value,
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize] = value,
+            _ => panic!("ROL called with unsupported addressing mode {addressing_mode:?}")
+        };
     }
 
     fn rotate_right(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let mut value = match addressing_mode {
+            AddressingMode::Accumulator => self.a,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            _ => panic!("ROR called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let new_carry = value & 0x1 != 0;
+        value = value >> 1;
+        if self.flags.carry {
+            value = value & 0x80;
+        }
+
+        self.flags.carry = new_carry;
+        self.flags.zero = value == 0;
+        self.flags.negative = value & 0x80 != 0;
+
+        match addressing_mode {
+            AddressingMode::Accumulator => self.a = value,
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize] = value,
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize] = value,
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize] = value,
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize] = value,
+            _ => panic!("ROR called with unsupported addressing mode {addressing_mode:?}")
+        };
     }
 
     fn bitwise_and(&mut self, addressing_mode: AddressingMode) {
