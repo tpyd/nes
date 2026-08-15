@@ -821,15 +821,63 @@ impl Cpu {
     }
 
     fn compare_a(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::ZeroPageX => self.memory[self.read_next_byte().wrapping_add(self.x) as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            AddressingMode::AbsoluteX => self.memory[self.read_next_word().wrapping_add(self.x as u16) as usize],
+            AddressingMode::AbsoluteY => self.memory[self.read_next_word().wrapping_add(self.y as u16) as usize],
+            AddressingMode::IndirectX => {
+                let loc = self.read_next_byte().wrapping_add(self.x);
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            AddressingMode::IndirectY => {
+                let loc = self.read_next_byte();
+                let first = self.memory[loc as usize];
+                let second = self.memory[loc.wrapping_add(1) as usize];
+                self.memory[u16::from_le_bytes([first, second]) as usize]
+            },
+            _ => panic!("CMP called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let result = self.a.wrapping_sub(memory_value);
+
+        self.flags.carry = self.a >= memory_value;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 != 0;
     }
 
     fn compare_x(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            _ => panic!("CPX called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let result = self.x.wrapping_sub(memory_value);
+
+        self.flags.carry = self.x >= memory_value;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 != 0;
     }
 
     fn compare_y(&mut self, addressing_mode: AddressingMode) {
-        todo!()
+        let memory_value = match addressing_mode {
+            AddressingMode::Immediate => self.read_next_byte(),
+            AddressingMode::ZeroPage => self.memory[self.read_next_byte() as usize],
+            AddressingMode::Absolute => self.memory[self.read_next_word() as usize],
+            _ => panic!("CPY called with unsupported addressing mode {addressing_mode:?}")
+        };
+
+        let result = self.y.wrapping_sub(memory_value);
+
+        self.flags.carry = self.y >= memory_value;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 != 0;
     }
 
     fn branch_if_carry_clear(&mut self) {
