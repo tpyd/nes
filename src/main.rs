@@ -881,39 +881,67 @@ impl Cpu {
     }
 
     fn branch_if_carry_clear(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if !self.flags.carry {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_carry_set(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.carry {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_equal(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.zero {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_not_equal(&mut self) {
         let address = self.read_next_byte() as i8 as i16;
 
-        if self.flags.zero == false {
+        if !self.flags.zero {
             self.pc = self.pc.wrapping_add_signed(address);
         }
     }
 
     fn branch_if_plus(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if !self.flags.negative {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_minus(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.negative {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_overflow_clear(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if !self.flags.overflow {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn branch_if_overflow_set(&mut self) {
-        todo!()
+        let address = self.read_next_byte() as i8 as i16;
+
+        if self.flags.overflow {
+            self.pc = self.pc.wrapping_add_signed(address);
+        }
     }
 
     fn jump(&mut self, addressing_mode: AddressingMode) {
