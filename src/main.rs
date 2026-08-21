@@ -325,9 +325,8 @@ impl Cpu {
     }
 
     fn pop_from_stack(&mut self) -> u8 {
-        let value = self.memory[0x100 + self.sp as usize];
         self.sp = self.sp.wrapping_add(1);
-        value
+        self.memory[0x100 + self.sp as usize]
     }
 }
 
@@ -1021,19 +1020,38 @@ impl Cpu {
     }
 
     fn push_a(&mut self) {
-        todo!()
+        self.push_to_stack(self.a);
     }
 
     fn pull_a(&mut self) {
-        todo!()
+        self.a = self.pop_from_stack();
+
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 != 0;
     }
 
     fn push_processor_status(&mut self) {
-        todo!()
+        let flags = (self.flags.negative as u8) << 7 |
+                    (self.flags.overflow as u8) << 6 |
+                    1 << 5 |
+                    1 << 4 |
+                    (self.flags.decimal as u8) << 3 |
+                    (self.flags.interrupt_disable as u8) << 2 |
+                    (self.flags.zero as u8) << 1 |
+                    self.flags.carry as u8;
+        self.push_to_stack(flags);
     }
 
     fn pull_processor_status(&mut self) {
-        todo!()
+        let processor_status = self.pop_from_stack();
+
+        self.flags.carry = processor_status & 0x1 == 1;
+        self.flags.zero = (processor_status >> 1) & 0x1 == 1;
+        self.flags.decimal = (processor_status >> 3) & 0x1 == 1;
+        self.flags.overflow = (processor_status >> 6) & 0x1 == 1;
+        self.flags.negative = (processor_status >> 7) & 0x1 == 1;
+
+        self.interrupt_disable_called = (processor_status >> 2) & 0x1 == 1;
     }
 
     fn set_carry(&mut self) {
