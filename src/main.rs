@@ -23,6 +23,12 @@ enum AddressingMode {
     IndirectY
 }
 
+enum InterruptDisableStatus {
+    NotCalled,
+    Enable,
+    Disable
+}
+
 struct Cpu {
     a: u8,
     x: u8,
@@ -31,7 +37,7 @@ struct Cpu {
     sp: u8,
     flags: Flags,
     memory: [u8; 0x10_000],
-    interrupt_disable_called: bool
+    interrupt_disable_status: InterruptDisableStatus
 }
 
 impl Cpu {
@@ -74,7 +80,7 @@ impl Cpu {
             sp: 0xfd,
             flags,
             memory: memory,
-            interrupt_disable_called: false
+            interrupt_disable_status: InterruptDisableStatus::NotCalled
         }
     }
 
@@ -294,8 +300,16 @@ impl Cpu {
             println!("Instruction byte: 0x{instruction_byte:x}");
 
             // Interrupt disable is delayed by one instruction
-            if self.interrupt_disable_called && instruction_byte != 0x78 {
-                self.flags.interrupt_disable = true;
+            if instruction_byte != 0x78 {
+                match self.interrupt_disable_status {
+                    InterruptDisableStatus::NotCalled => {},
+                    InterruptDisableStatus::Enable => {
+                        self.flags.interrupt_disable = true;
+                    },
+                    InterruptDisableStatus::Disable => {
+                        self.flags.interrupt_disable = false
+                    }
+                };
             }
         }
     }
@@ -1051,27 +1065,30 @@ impl Cpu {
         self.flags.overflow = (processor_status >> 6) & 0x1 == 1;
         self.flags.negative = (processor_status >> 7) & 0x1 == 1;
 
-        self.interrupt_disable_called = (processor_status >> 2) & 0x1 == 1;
+        self.interrupt_disable_status = match (processor_status >> 2) & 0x1 == 1 {
+            true => InterruptDisableStatus::Enable,
+            false => InterruptDisableStatus::Disable
+        };
     }
 
     fn set_carry(&mut self) {
-        todo!()
+        self.flags.carry = true;
     }
 
     fn set_interrupt_disable(&mut self) {
-        self.interrupt_disable_called = true;    
+        self.interrupt_disable_status = InterruptDisableStatus::Enable;
     }
 
     fn set_decimal(&mut self) {
-        todo!()
+        self.flags.decimal = true;
     }
 
     fn clear_carry(&mut self) {
-        todo!()
+        self.flags.carry = false;
     }
 
     fn clear_interrupt_disable(&mut self) {
-        todo!()
+        self.interrupt_disable_status = InterruptDisableStatus::Disable;
     }
 
     fn clear_decimal(&mut self) {
@@ -1079,7 +1096,7 @@ impl Cpu {
     }
 
     fn clear_overflow(&mut self) {
-        todo!()
+        self.flags.overflow = false;
     }
 }
 
