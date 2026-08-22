@@ -87,6 +87,8 @@ impl Cpu {
     fn run(&mut self) {
         loop {
             let instruction_byte = self.read_next_byte();
+
+            println!("Instruction byte: 0x{instruction_byte:x}");
             
             match instruction_byte {
                 // LDA
@@ -296,8 +298,6 @@ impl Cpu {
 
                 _ => panic!("Invalid instruction byte: {instruction_byte:x}")
             }
-
-            println!("Instruction byte: 0x{instruction_byte:x}");
 
             // Interrupt disable is delayed by one instruction
             if instruction_byte != 0x78 {
